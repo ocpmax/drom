@@ -138,7 +138,7 @@ let project_brace (_, p) v =
   | "sphinx-target" -> Misc.sphinx_target p
   | "odoc-target" -> Misc.odoc_target p
   | "make-copy-programs" ->
-      List.filter (fun package -> package.kind = Program) p.packages
+      List.filter (fun package -> package.kind = Program && package.p_mode <> Some Javascript) p.packages
       |> List.map (fun package ->
           Printf.sprintf "\n\tcp -f _build/default/%s/main.exe %s" package.dir
             package.name)
@@ -325,7 +325,7 @@ let package_brace (context, package) v =
         match p_mode with
         | Binary -> dependencies
         | Javascript ->
-            if List.mem "js_of_ocaml" dependencies then
+            if List.mem "js_of_ocaml-ppx" dependencies || List.mem "js_of_ocaml" dependencies then
               dependencies
             else
               "js_of_ocaml" :: dependencies
@@ -338,10 +338,9 @@ let package_brace (context, package) v =
           | Javascript ->
               [ ( match package.kind with
                     | Library
-                    | Virtual ->
-                        ""
-                    | Program -> "(modes exe js)" );
-                "   (preprocess (pps js_of_ocaml-ppx))"
+                    | Virtual -> "(modes byte)"
+                    | Program -> "(modes js)" );
+                "  (preprocess (pps js_of_ocaml-ppx))"
               ] )
   | "package-dune-files" -> Dune.package_dune_files package
   | "package-dune-installs" ->
@@ -352,7 +351,7 @@ let package_brace (context, package) v =
             (* We need to create a specific installation rule to force
                build of the Javascript files when `dune build
                @install` is called by `drom build` *)
-            share_files := "(main.bc.js as www/js/%s.js)" :: !share_files
+            share_files := Printf.sprintf "(main.bc.js as %s.js)" package.name :: !share_files
         | _ -> ()
       end;
       (
